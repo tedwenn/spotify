@@ -1,4 +1,4 @@
-# Spotify Top Albums Helper
+# Spotify Bracket Helper
 Every year, I take my favorite 64 albums from the year and have them compete in matchups in a bracket, tracked on [challonge.com](https://challonge.com/top_albums_2023).
 When I listen to a pair of albums, I like to splice them, so can decide which I prefer without any recency bias.
 The process of splicing while adding to a Spotify playlist is kind of a pain, especially when the albums are very different lengths, so I made this program to manage that for me.
