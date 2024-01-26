@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -6,54 +7,83 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
-import os
+import time
+from datetime import datetime
 
-def get_soup(url):
-    # Use Beautiful Soup to parse the page source
-    return BeautifulSoup(get_html(url), 'html.parser')
+class Driver():
 
-def get_html(url):
+    def __init__(self):
+        self.t0 = time.time()
+        self.n_reset = 0
+        self._driver = self._new_driver()
 
-    # ptf = 'tournament.html'
+    @property
+    def driver(self):
+        if time.time() - self.t0 > self.n_reset * 60 * 60: # create a new driver if it's been more than an hour
+            self._driver.quit()
+            self._driver = self._new_driver()
+        return self._driver
 
-    # # Check if the file already exists
-    # if os.path.exists(ptf):
-    #     with open(ptf, 'r') as file:
-    #         content = file.read()
-    #     return content
+    def _new_driver(self):
 
-    # Initialize Chrome options
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Enables headless mode
+        print('creating new driver at', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-    # Initialize the Chrome driver with the options
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        self.n_reset += 1
 
-    # Open the URL
-    driver.get(url)
+        # Initialize Chrome options
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Enables headless mode
 
-    # Wait for the SVG element with the specific class to appear
-    wait = WebDriverWait(driver, 10)  # Wait up to 10 seconds (adjust as needed)
-    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'svg.tournament-bracket.-for-print')))
+        # Initialize the Chrome driver with the options
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
-    # Get the page source after the element is loaded
-    page_source = driver.page_source
-
-    # Close the driver
-    driver.quit()
-
-    # with open(ptf, 'w') as file:
-    #     file.write(page_source)
+        return driver
     
-    return page_source
+    def get_soup(self, url):
+        # Use Beautiful Soup to parse the page source
+        return BeautifulSoup(self.get_html(url), 'html.parser')
+    
+    def get_html(self, url):
+        wait_time = 10
+        while True:
+            try:
+                return self.get_html_with_wait(url, wait_time)
+            except TimeoutException:
+                print('webdriver wait failed', wait_time, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                wait_time *= 1.5
 
-def get_open_matches():
-    soup = get_soup('https://challonge.com/top_albums_2023.svg')
-    open_match_elements = soup.find_all('g', class_='match -open')
-    matches = []
-    for open_match_element in open_match_elements:
-        match_id = int(open_match_element['data-identifier'])
-        albums = [title.text for title in open_match_element.find_all('title')]
-        matches.append((match_id, albums))
-    matches.sort()
-    return matches
+    def get_html_with_wait(self, url, wait_time):
+
+        # Open the URL
+        self.driver.get(url)
+
+        # Wait for the SVG element with the specific class to appear
+        wait = WebDriverWait(self.driver, wait_time)
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'svg.tournament-bracket.-for-print')))
+
+        # Get the page source after the element is loaded
+        page_source = self.driver.page_source
+        
+        return page_source
+
+    def get_open_matches(self):
+        soup = self.get_soup('https://challonge.com/top_albums_2023.svg')
+        open_match_elements = soup.find_all('g', class_='match -open')
+        matches = []
+        for open_match_element in open_match_elements:
+            match_id = int(open_match_element['data-identifier'])
+            albums = [title.text for title in open_match_element.find_all('title')]
+            matches.append((match_id, albums))
+        matches.sort()
+        return matches
+    
+    def get_updated_open_matches(self):
+        open_matches = self.get_open_matches()
+        while True:
+            new_open_matches = self.get_open_matches()
+            if new_open_matches != open_matches:
+                open_matches = new_open_matches
+                print('new open matches!', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                yield new_open_matches
+            else:
+                time.sleep(5)
