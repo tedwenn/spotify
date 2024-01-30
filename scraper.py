@@ -87,6 +87,7 @@ class Driver():
                 raise e
             print("An error occurred: ", e)
             print('retrying, attempt', n_retries)
+            self._reset_driver()
             self.safe_get(url, n_retries)
 
     def get_html(self, url, expected_condition_function=None):
