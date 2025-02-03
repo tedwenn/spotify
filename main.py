@@ -1,7 +1,8 @@
+from challonge import get_matchups
 from new_releases import get_new_release_dataframe
 from gsheet import write_to_gsheet, read_from_gsheet
 from standings import update_log, get_log
-from playlister import update_playlist
+from playlister import update_playlist_albums, update_playlist_albums_matchups
 from spotify_helper import Spotify
 from datetime import datetime
 from utils import playlist_id
@@ -42,7 +43,13 @@ def main():
         update_albums(sp)
         next_albums = update_log(10)
         log = new_log
-        update_playlist(sp, playlist_id, next_albums)
+        update_playlist_albums(sp, playlist_id, next_albums)
+
+def main_bracket():
+    matchups = get_matchups()
+    sp = Spotify()
+    update_playlist_albums_matchups(sp, playlist_id, matchups)
 
 if __name__ == '__main__':
-    main()
+    # main()
+    main_bracket()

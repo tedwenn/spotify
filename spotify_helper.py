@@ -118,3 +118,14 @@ class Spotify():
         data = response.json()
         return data
     
+    def search_album_uri(self, album_str):
+        """Search for an album URI based on a string input of the form 'artist_name - album_name'."""
+        artist_name, album_name = album_str.split(' - ')
+        album_name = album_name.replace("'", '')
+        results = self.sp.search(q=f'artist:{artist_name} album:{album_name}', type='album')
+        albums = results['albums']['items']
+        if albums:
+            # Return the URI of the first album found
+            return albums[0]['uri']
+        else:
+            raise Exception(f'No album found for the given artist ({artist_name}) and album ({album_name}) name.')
