@@ -8,6 +8,17 @@ def get_log():
     log['add_timestamp'] = pd.to_datetime(log['add_timestamp'])
     return log
 
+def get_grade_components(grade):
+    if not grade:
+        return ('Z', 1)  # 'Z' ensures empty grades are sorted last
+    
+    base_grade = grade[0]
+    modifier = grade[1] if len(grade) > 1 else ''
+    
+    modifier_rank = 0 if modifier == '+' else 2 if modifier == '-' else 1
+    
+    return (base_grade, modifier_rank)
+
 def get_standings():
     albums = read_from_gsheet('album_input')
     log = get_log()    
@@ -19,16 +30,20 @@ def get_standings():
     standings['appearances'] = standings['appearances'].fillna(0)
     standings['ratings'] = standings['ratings'].fillna(0)
     standings['Rating'] = standings['Rating'].fillna('')
-    standings['rating_sorted'] = pd.Categorical(standings['Rating'], categories=np.unique(standings['Rating'][standings['Rating'] != '']).tolist() + [''], ordered=True)
+    
+    # Apply the get_grade_components function
+    standings['grade_components'] = standings['Rating'].apply(get_grade_components)
+    
     indices = np.lexsort((
         standings['release_date'],
         standings['add_timestamp'],
-        standings['rating_sorted'],
+        standings['grade_components'].apply(lambda x: x[1]),  # Second-tier sort (modifier)
+        standings['grade_components'].apply(lambda x: x[0]),  # First-tier sort (letter grade)
         -standings['ratings'],  # Negative for descending sort
         standings['appearances']
     ))
     standings['priority'] = indices.argsort() + 1
-    standings.drop(columns=['rating_sorted'], inplace=True)
+    standings.drop(columns=['grade_components'], inplace=True)
     return standings
 
 def update_log(n_buffer):
